@@ -1,0 +1,137 @@
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+<!-- badges: start -->
+
+[![R-CMD-check](https://github.com/jocateme/araponga/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/jocateme/araponga/actions/workflows/R-CMD-check.yaml)
+<!-- badges: end -->
+
+# `araponga`: estimating 3D orientations from 2D landmarks in R
+
+`araponga` is for you if you need to estimate the 3D orientations
+(left-right, up-down) of an object from images. It is especially useful
+when you know - or can reasonably estimate - the view elevation from
+which the object was photographed.
+
+The central problem is that a 2D projection does not uniquely determine
+a 3D angle: the same apparent orientation in an image can be produced by
+many combinations of true orientation, camera position, and viewing
+angle. Instead of returning a single potentially misleading estimate,
+`araponga` returns the set of 3D angles compatible with the observed 2D
+projection and any user-provided constraints.
+
+The package was originally developed to estimate beak gape angles in
+singing birds, but the workflow is general: if an object can be
+represented by a base landmark and a tip landmark, `araponga` can help
+explore which 3D pitch, yaw, and view elevation angles are compatible
+with its 2D projection.
+
+## Installation
+
+You can install `araponga` from CRAN:
+
+``` r
+install.packages("araponga")
+```
+
+Then load the package:
+
+``` r
+library(araponga)
+```
+
+The main angle-recovery functions use a precomputed simulation dataset.
+Download it once before using `find.3d()`, `find.pitch()`, or
+`find.yaw()`:
+
+``` r
+download.simdata()
+```
+
+The dataset is cached locally and reused in future sessions.
+
+## Basic workflow
+
+The general workflow is:
+
+`2D landmarks -> projected 2D pitch -> constrained 3D search -> compatible 3D angles`
+
+The package uses fixed angle conventions for pitch, yaw, and view
+elevation. To display these conventions visually, use:
+
+``` r
+conventions()
+```
+
+First, use two landmarks — a base and a tip — to calculate the projected
+2D pitch:
+
+``` r
+p2d <- pitch2d.from.xy(
+  x_tip = 10,
+  y_tip = 20,
+  x_base = 0,
+  y_base = 0,
+  plot = TRUE
+)
+```
+
+The output from `pitch2d.from.xy()` can then be used to ask, for
+example, which 3D pitches (up-down orientation) are compatible with the
+image, given assumptions about view elevation, yaw, and landmark error:
+
+``` r
+possible_pitches <- find.pitch(
+  p2d,
+  candidate_view_elevations = -35:-25, # assume object seen from 25-35 below
+  candidate_yaws = -30:0, # side-on to slightly facing camera
+  label_error = 1 # ± 1 px labeling error
+)
+plot.angles(possible_pitches, type = "pitch")
+```
+
+Using the same 2D projection, we can also ask which yaws (left-right
+orientation) are compatible with the image:
+
+``` r
+possible_yaws <- find.yaw(
+  p2d,
+  candidate_view_elevations = -35:-25,
+  candidate_pitches = 0:90, # horizontal to straight up
+  label_error = 1
+)
+plot.angles(possible_yaws, type = "yaw")
+```
+
+An important point is that the`candidate_...` arguments define which 3D
+configurations are considered plausible before compatible angles are
+returned.
+
+## Main functions
+
+`araponga` includes functions for:
+
+- extracting projected 2D pitch from landmarks:
+  - `pitch2d.from.xy()`
+  - `pitch2d.w.error()`
+- finding compatible 3D angles:
+  - `find.3d()`
+  - `find.pitch()`
+  - `find.yaw()`
+- visualizing angles:
+  - `plot.angles()`
+  - `conventions()`
+- working with yaw sets:
+  - `trim.yaws()`
+  - `summarize.yaws()`
+- simulating and rotating 3D coordinates:
+  - `rotate3d()`, `Rx()`, `Ry()`, `Rz()`
+  - `pitch2d.from.3d()`
+
+## Learn more
+
+For package conventions and a full worked example, see the vignette:
+
+``` r
+vignette("araponga")
+```
