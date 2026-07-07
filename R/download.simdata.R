@@ -12,14 +12,12 @@
 #' dataset directory.
 #'
 #' @details
-#' The dataset is stored under `tools::R_user_dir("araponga", "cache")`. If the archive is already
-#' available locally and `overwrite = FALSE`, the cached dataset is reused. See [find.3d()] for how
-#' the dataset was constructed.
+#' The dataset is stored under `tools::R_user_dir("araponga", "cache")`. If the current dataset version
+#' is already available locally and `overwrite = FALSE`, the cached dataset is reused. See [find.3d()]
+#' for how the dataset was constructed.
 #'
 #' @export
-download.simdata <- function(overwrite = FALSE,
-                             quiet = FALSE){
-  
+download.simdata <- function(overwrite = FALSE, quiet = FALSE) {
   
   if (!is.logical(overwrite) || length(overwrite) != 1 || is.na(overwrite)) {
     stop("`overwrite` must be a logical scalar.", call. = FALSE)
@@ -29,9 +27,8 @@ download.simdata <- function(overwrite = FALSE,
   }
   
   dest_dir <- tools::R_user_dir("araponga", "cache")
-  dataset_dir <- file.path(dest_dir, "sim_data_parquet")
-  remote_url <- "https://zenodo.org/records/18982472/files/sim_data_parquet.zip?download=1"
-  expected_md5 <- "7b3a60ffdadbf60f93b33a30c8088475"
+  dataset_dir <- file.path(dest_dir, .simdata_dirname)
+  meta_file <- file.path(dest_dir, .simdata_meta_file)
   
   has_parquet_files <- function(path) {
     length(list.files(path, pattern = "\\.parquet$", recursive = TRUE, full.names = TRUE)) > 0
@@ -39,17 +36,55 @@ download.simdata <- function(overwrite = FALSE,
   
   dir.create(dest_dir, recursive = TRUE, showWarnings = FALSE)
   
-  # Reuse a complete existing cache
-  if (dir.exists(dataset_dir) && has_parquet_files(dataset_dir) && !overwrite) {
+  # Reuse current cache
+  if (.simdata_is_current() && !overwrite) {
+    if (!quiet) {
+      message("Simulation dataset version ", .simdata_version, " is already installed.")
+    }
     return(normalizePath(dataset_dir, winslash = "/"))
   }
   
-  # Remove incomplete or stale cache before rebuilding
+  # Existing cache is present, but not current
+  if (dir.exists(dataset_dir) && !overwrite) {
+    msg <- paste0(
+      "An older or unversioned araponga simulation dataset was found at:\n",
+      dataset_dir,
+      "\n\n",
+      "The current required version is ", .simdata_version, "."
+    )
+    
+    if (interactive()) {
+      update <- utils::askYesNo(
+        paste0(msg, "\n\nDownload the updated version now, overwriting the old cache?")
+      )
+      
+      if (isTRUE(update)) {
+        overwrite <- TRUE
+      } else {
+        stop(
+          "The installed simulation dataset is outdated. ",
+          "Run `download.simdata(overwrite = TRUE)` to update it.",
+          call. = FALSE
+        )
+      }
+    } else {
+      stop(
+        msg,
+        "\n\nRun `download.simdata(overwrite = TRUE)` to update it.",
+        call. = FALSE
+      )
+    }
+  }
+  
+  # Remove incomplete, stale, or explicitly overwritten cache before rebuilding
   if (dir.exists(dataset_dir)) {
     unlink(dataset_dir, recursive = TRUE, force = TRUE)
   }
+  if (file.exists(meta_file)) {
+    unlink(meta_file)
+  }
   
-  zip_path <- file.path(dest_dir, "sim_data_parquet.zip")
+  zip_path <- file.path(dest_dir, .simdata_file)
   tmp_zip <- paste0(zip_path, ".partial")
   tmp_extract <- tempfile("sim_data_extract_", tmpdir = dest_dir)
   dir.create(tmp_extract, showWarnings = FALSE)
@@ -75,7 +110,7 @@ download.simdata <- function(overwrite = FALSE,
     h <- curl::new_handle()
     curl::handle_setheaders(h, "User-Agent" = ua)
     downloaded <- tryCatch({
-      curl::curl_download(remote_url, tmp_zip, quiet = quiet, handle = h)
+      curl::curl_download(.simdata_url(), tmp_zip, quiet = quiet, handle = h)
       TRUE
     }, error = function(e) FALSE)
   }
@@ -83,7 +118,7 @@ download.simdata <- function(overwrite = FALSE,
   if (!downloaded && requireNamespace("httr", quietly = TRUE)) {
     downloaded <- tryCatch({
       resp <- httr::GET(
-        remote_url,
+        .simdata_url(),
         httr::write_disk(tmp_zip, overwrite = TRUE),
         httr::user_agent(ua),
         if (!quiet) httr::progress()
@@ -95,7 +130,7 @@ download.simdata <- function(overwrite = FALSE,
   
   if (!downloaded) {
     downloaded <- tryCatch({
-      utils::download.file(remote_url, tmp_zip, mode = "wb", quiet = quiet)
+      utils::download.file(.simdata_url(), tmp_zip, mode = "wb", quiet = quiet)
       TRUE
     }, error = function(e) FALSE)
   }
@@ -107,18 +142,19 @@ download.simdata <- function(overwrite = FALSE,
   if (file.exists(zip_path)) {
     unlink(zip_path)
   }
+  
   ok <- file.rename(tmp_zip, zip_path)
   if (!ok || !file.exists(zip_path)) {
     stop("Could not move the downloaded archive into the cache directory.", call. = FALSE)
   }
   
   actual_md5 <- unname(tools::md5sum(zip_path))
-  if (!identical(tolower(actual_md5), tolower(expected_md5))) {
+  if (!identical(tolower(actual_md5), tolower(.simdata_md5))) {
     unlink(zip_path)
     stop(
       paste0(
         "Checksum mismatch: downloaded file may be corrupted.\n",
-        "Expected: ", expected_md5, "\n",
+        "Expected: ", .simdata_md5, "\n",
         "Got:      ", actual_md5
       ),
       call. = FALSE
@@ -127,7 +163,6 @@ download.simdata <- function(overwrite = FALSE,
   
   utils::unzip(zip_path, exdir = tmp_extract)
   
-  # Identify the extracted dataset location.
   if (has_parquet_files(tmp_extract)) {
     source_dir <- tmp_extract
   } else {
@@ -149,6 +184,7 @@ download.simdata <- function(overwrite = FALSE,
   if (dir.exists(dataset_dir)) {
     unlink(dataset_dir, recursive = TRUE, force = TRUE)
   }
+  
   ok <- file.rename(source_dir, dataset_dir)
   if (!ok || !dir.exists(dataset_dir)) {
     stop("Could not move extracted dataset into the cache directory.", call. = FALSE)
@@ -158,9 +194,19 @@ download.simdata <- function(overwrite = FALSE,
     unlink(zip_path)
   }
   
+  writeLines(
+    c(
+      paste0("simdata_version: ", .simdata_version),
+      paste0("zip_md5: ", .simdata_md5),
+      paste0("downloaded_at: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"))
+    ),
+    meta_file
+  )
+  
   out_dir <- normalizePath(dataset_dir, winslash = "/")
   if (!quiet) {
     message("Simulation dataset available at: ", out_dir)
   }
+  
   invisible(out_dir)
 }

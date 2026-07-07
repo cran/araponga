@@ -12,7 +12,7 @@
 
 <meta name="author" content="João C. T. Menezes" />
 
-<meta name="date" content="2026-06-26" />
+<meta name="date" content="2026-07-07" />
 
 <title>From 2D landmarks to 3D orientantions: the araponga workflow</title>
 
@@ -342,7 +342,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">From 2D landmarks to 3D orientantions: the
 <code>araponga</code> workflow</h1>
 <h4 class="author">João C. T. Menezes</h4>
-<h4 class="date">2026-06-26</h4>
+<h4 class="date">2026-07-07</h4>
 
 
 <div id="TOC">
@@ -730,7 +730,7 @@ estimated as:</p>
 <div class="sourceCode" id="cb33"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" tabindex="-1"></a>next_frame_yaw <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">50</span><span class="sc">:</span><span class="dv">90</span></span></code></pre></div>
 <p>We can use <code>trim.yaws()</code> to keep only yaw values
 consistent with this movement:</p>
-<div class="sourceCode" id="cb34"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" tabindex="-1"></a><span class="co"># red = excluded; green = retained</span></span>
+<div class="sourceCode" id="cb34"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" tabindex="-1"></a><span class="co"># orange = excluded; blue = retained</span></span>
 <span id="cb34-2"><a href="#cb34-2" tabindex="-1"></a>trimmed <span class="ot">&lt;-</span> <span class="fu">trim.yaws</span>(<span class="at">ccw_yaws =</span> yaw,</span>
 <span id="cb34-3"><a href="#cb34-3" tabindex="-1"></a>                     <span class="at">cw_yaws =</span> next_frame_yaw,</span>
 <span id="cb34-4"><a href="#cb34-4" tabindex="-1"></a>                     <span class="at">min_sep =</span> <span class="dv">0</span>,</span>

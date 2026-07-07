@@ -9,9 +9,9 @@
 # `araponga`: estimating 3D orientations from 2D landmarks in R
 
 `araponga` is for you if you need to estimate the 3D orientations
-(left-right, up-down) of an object from images. It is especially useful
-when you know - or can reasonably estimate - the view elevation from
-which the object was photographed.
+(left-right, up-down) of a directed object from single images. It is
+especially useful when you know - or can reasonably estimate - the view
+elevation from which the object was photographed.
 
 The central problem is that a 2D projection does not uniquely determine
 a 3D angle: the same apparent orientation in an image can be produced by
@@ -40,6 +40,16 @@ Then load the package:
 library(araponga)
 ```
 
+You can install the development version from GitHub with:
+
+``` r
+install.packages("pak")
+pak::pak("jocateme/araponga")
+```
+
+The development version may include changes that have not yet been
+released on CRAN.
+
 The main angle-recovery functions use a precomputed simulation dataset.
 Download it once before using `find.3d()`, `find.pitch()`, or
 `find.yaw()`:
@@ -57,7 +67,7 @@ The general workflow is:
 `2D landmarks -> projected 2D pitch -> constrained 3D search -> compatible 3D angles`
 
 The package uses fixed angle conventions for pitch, yaw, and view
-elevation. To display these conventions visually, use:
+elevation. To display these conventions at any time, use:
 
 ``` r
 conventions()

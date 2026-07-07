@@ -21,8 +21,9 @@
 #'  interval (-180, 180]. Convention: `0` = pointed right, `90` = pointed straight away, `-90` = pointed
 #'  straight toward, `180` = pointed left. Default is `NULL` (all yaws considered). Provided values are
 #'  rounded to the nearest integer.
-#' @param label_error Positive numeric scalar specifying the error (± pixels) used to perturb landmark
-#'  coordinates. Passed internally to [pitch2d.w.error()]. Required if `length(pitch2d)` = 1.
+#' @param label_error Positive numeric scalar specifying the error used to perturb each landmark
+#'  coordinate, in the same units as the coordinates supplied to [pitch2d.from.xy()] (e.g., pixels).
+#'  Passed internally to [pitch2d.w.error()]. Required if `length(pitch2d)` = 1.
 #' @param label_nsamp Positive integer scalar specifying the approximate number of grid combinations to
 #'  evaluate. Passed internally to [pitch2d.w.error()]. Required if `length(pitch2d)` = 1.
 #' @param sim_download Logical scalar. If `TRUE`, the function will attempt to download the precomputed
@@ -50,7 +51,8 @@
 #' the base midpoint and tip were projected to 2D pixel coordinates with an orthographic camera.
 #' The cached simulation table stores the resulting projected geometry and derived 2D pitch values;
 #' `find.3d()` (and wrappers) then filter that table for combinations compatible with the requested 2D
-#' pitch and any optional candidate constraints.
+#' pitch and any optional candidate constraints. The codes used to generate the dataset are maintained at
+#' https://github.com/jocateme/araponga/tree/main/data-raw/simdata.
 #'
 #' @examples
 #' \donttest{
@@ -203,16 +205,22 @@ find.3d <- function(pitch2d,
   }
   
   dest_dir <- tools::R_user_dir("araponga", "cache")
-  if(!dir.exists(file.path(dest_dir, "sim_data_parquet"))){
-    if(!sim_download){
-      stop("Simulation dataset not found locally. Either set `sim_download = TRUE` or run",
-      " `download.simdata()` to download the dataset (207MB, one-time).")
+  dataset_dir <- file.path(dest_dir, .simdata_dirname)
+  
+  if (!.simdata_is_current()) {
+    if (!sim_download) {
+      stop(
+        "The current simulation dataset was not found locally. ",
+        "Run `download.simdata(overwrite = TRUE)` or set `sim_download = TRUE` ",
+        "to download the current dataset.",
+        call. = FALSE
+      )
     }
     
-    download.simdata()
+    download.simdata(overwrite = TRUE)
   }
   
-  sim_data <- arrow::open_dataset(file.path(dest_dir, "sim_data_parquet"))
+  sim_data <- arrow::open_dataset(dataset_dir)
   
   if(length(pitch2d) > 1){
     pitch2d_w_error <- pitch2d
@@ -252,8 +260,7 @@ find.3d <- function(pitch2d,
   if(!is.null(find)){
     sim_data <- sim_data |> dplyr::select(!!!dplyr::syms(find))
   }
-  collected <- dplyr::collect(sim_data)
-  collected <- collected[!duplicated(collected),]
+  collected <- sim_data |> dplyr::distinct() |> dplyr::collect()
   return(as.data.frame(collected))
   
 }

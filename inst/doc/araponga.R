@@ -231,7 +231,7 @@ any(max_gape_per_yaw$gape < 0)
 next_frame_yaw <- -50:90
 
 ## -----------------------------------------------------------------------------
-# red = excluded; green = retained
+# orange = excluded; blue = retained
 trimmed <- trim.yaws(ccw_yaws = yaw,
                      cw_yaws = next_frame_yaw,
                      min_sep = 0,

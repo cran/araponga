@@ -1,6 +1,6 @@
 Package: araponga
 Title: Estimate 3D Orientations from 2D Landmarks
-Version: 1.0.1
+Version: 1.1.0
 Authors@R: 
     person("João C T", "Menezes", "", "jocateme@gmail.com", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0003-4156-2934"))
@@ -20,9 +20,9 @@ URL: https://github.com/jocateme/araponga
 BugReports: https://github.com/jocateme/araponga/issues
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2026-06-26 14:20:00 UTC; jocateme
+Packaged: 2026-07-07 14:22:52 UTC; jocateme
 Author: João C T Menezes [aut, cre, cph] (ORCID:
     <https://orcid.org/0000-0003-4156-2934>)
 Maintainer: João C T Menezes <jocateme@gmail.com>
 Repository: CRAN
-Date/Publication: 2026-07-02 18:10:02 UTC
+Date/Publication: 2026-07-07 20:00:17 UTC
