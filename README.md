@@ -9,22 +9,18 @@
 # `araponga`: estimating 3D orientations from 2D landmarks in R
 
 `araponga` is for you if you need to estimate the 3D orientations
-(left-right, up-down) of a directed object from single images. It is
-especially useful when you know - or can reasonably estimate - the view
-elevation from which the object was photographed.
+(left—right, up—down) of a directed object from two landmarks labeled in
+single images or video frames. It identifies the orientations compatible
+with the observed 2D landmark geometry and any additional information
+you can provide about the imaging geometry or object, such as view
+elevation or unprojected length.
 
-The central problem is that a 2D projection does not uniquely determine
-a 3D angle: the same apparent orientation in an image can be produced by
-many combinations of true orientation, camera position, and viewing
-angle. Instead of returning a single potentially misleading estimate,
-`araponga` returns the set of 3D angles compatible with the observed 2D
-projection and any user-provided constraints.
-
-The package was originally developed to estimate beak gape angles in
-singing birds, but the workflow is general: if an object can be
-represented by a base landmark and a tip landmark, `araponga` can help
-explore which 3D pitch, yaw, and view elevation angles are compatible
-with its 2D projection.
+The central problem is that a pair of 2D landmarks does not uniquely
+determine a 3D angle: the same apparent orientation in an image can be
+produced by many combinations of true orientation, camera position, and
+viewing angle. Instead of returning a single potentially misleading
+estimate, `araponga` returns the set of 3D angles compatible with the
+observed landmarks and user-provided constraints.
 
 ## Installation
 
@@ -50,21 +46,11 @@ pak::pak("jocateme/araponga")
 The development version may include changes that have not yet been
 released on CRAN.
 
-The main angle-recovery functions use a precomputed simulation dataset.
-Download it once before using `find.3d()`, `find.pitch()`, or
-`find.yaw()`:
-
-``` r
-download.simdata()
-```
-
-The dataset is cached locally and reused in future sessions.
-
 ## Basic workflow
 
 The general workflow is:
 
-`2D landmarks -> projected 2D pitch -> constrained 3D search -> compatible 3D angles`
+`2D landmarks -> projected geometry -> constrained 3D search -> compatible 3D angles`
 
 The package uses fixed angle conventions for pitch, yaw, and view
 elevation. To display these conventions at any time, use:
@@ -73,57 +59,99 @@ elevation. To display these conventions at any time, use:
 conventions()
 ```
 
-First, use two landmarks — a base and a tip — to calculate the projected
-2D pitch:
+First, use two landmarks — a base and a tip — to describe the object’s
+2D projection:
 
 ``` r
-p2d <- pitch2d.from.xy(
+observed <- project2d.from.xy(
   x_tip = 10,
   y_tip = 20,
   x_base = 0,
   y_base = 0,
   plot = TRUE
 )
+
+observed
 ```
 
-The output from `pitch2d.from.xy()` can then be used to ask, for
-example, which 3D pitches (up-down orientation) are compatible with the
-image, given assumptions about view elevation, yaw, and landmark error:
+The returned `araponga2d` object contains the landmark coordinates,
+projected 2D pitch, and projected length.
+
+We can then ask, for example, which 3D pitches (up—down orientations)
+are compatible with the observation, given assumptions about view
+elevation, yaw, and landmark labeling error:
 
 ``` r
 possible_pitches <- find.pitch(
-  p2d,
-  candidate_view_elevations = -35:-25, # assume object seen from 25-35 below
-  candidate_yaws = -30:0, # side-on to slightly facing camera
-  label_error = 1 # ± 1 px labeling error
+  observed2d = observed,
+  label_error = 1, # ±1 px labeling error
+  candidate_view_elevations = -35:-25, # seen from 25-35° below
+  candidate_yaws = -30:0 # side-on to slightly facing camera
 )
+
 plot.angles(possible_pitches, type = "pitch")
 ```
 
-Using the same 2D projection, we can also ask which yaws (left-right
-orientation) are compatible with the image:
+Using the same observation, we can instead ask which yaws (left—right
+orientations) are compatible:
 
 ``` r
 possible_yaws <- find.yaw(
-  p2d,
+  observed2d = observed,
+  label_error = 1,
   candidate_view_elevations = -35:-25,
-  candidate_pitches = 0:90, # horizontal to straight up
-  label_error = 1
+  candidate_pitches = 0:90 # horizontal to straight up
 )
+
 plot.angles(possible_yaws, type = "yaw")
 ```
 
-An important point is that the`candidate_...` arguments define which 3D
+An important point is that the `candidate_...` arguments define which 3D
 configurations are considered plausible before compatible angles are
 returned.
+
+If the unprojected length of the object is also known or can be
+estimated, it can be supplied with `full_length`. In that case,
+`araponga` uses both projected direction and projected length to
+constrain the compatible 3D orientations:
+
+``` r
+possible_pitches <- find.pitch(
+  observed2d = observed,
+  label_error = 1,
+  full_length = c(22, 24),
+  candidate_view_elevations = -35:-25,
+  candidate_yaws = -30:0
+)
+```
+
+`full_length` must be expressed in the same units as the observed 2D
+coordinates. Thus, when landmarks are measured in pixels, `full_length`
+must represent the object’s unprojected length in pixels rather than its
+physical length directly.
+
+Two helper functions can be used to estimate this quantity.
+`full_length.from.camera()` converts physical length to an unprojected
+image length using camera distance and camera geometry, while
+`full_length.from.reference()` estimates it from a reference segment of
+known physical length and pixel length.
+
+For workflows in which projected measurements have already been
+calculated, `find.3d()` and its wrappers can also accept `pitch2d`
+and/or `length2d` constraints directly, without requiring the original
+landmarks. See the vignette and function documentation for this
+alternative input route.
 
 ## Main functions
 
 `araponga` includes functions for:
 
-- extracting projected 2D pitch from landmarks:
-  - `pitch2d.from.xy()`
+- describing observed 2D projections and uncertainty:
+  - `project2d.from.xy()`
   - `pitch2d.w.error()`
+- estimating unprojected image length:
+  - `full_length.from.camera()`
+  - `full_length.from.reference()`
 - finding compatible 3D angles:
   - `find.3d()`
   - `find.pitch()`
@@ -134,9 +162,9 @@ returned.
 - working with yaw sets:
   - `trim.yaws()`
   - `summarize.yaws()`
-- simulating and rotating 3D coordinates:
+- projecting and rotating 3D coordinates:
+  - `project2d.from.3d()`
   - `rotate3d()`, `Rx()`, `Ry()`, `Rz()`
-  - `pitch2d.from.3d()`
 
 ## Learn more
 

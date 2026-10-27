@@ -35,28 +35,13 @@
 #' plot.angles(list)
 #' 
 #' # call with output from find.3d
-#' \donttest{
-#' # test that dataset is downloaded before running example
-#' sim_path <- file.path(
-#'   tools::R_user_dir("araponga", "cache"),
-#'   "sim_data_parquet"
-#' )
-#' 
-#' if(dir.exists(sim_path)){
 #' ## pitches and yaws that project to 10° (± 1° error) if seen from 15° below
 #' df <- find.3d(
-#'   9:11,
+#'   pitch2d = 9:11,
 #'   find = c("pitch", "yaw"),
-#'   candidate_view_elevations = -15,
-#'   sim_download = FALSE
+#'   candidate_view_elevations = -15
 #'   )
 #' plot.angles(df)
-#' } else {
-#' message(
-#'   "Run download.simdata() first to enable this example."
-#'   )
-#' }
-#' }
 #' 
 #' @seealso [find.3d()]
 #' @export plot.angles
@@ -68,7 +53,8 @@ plot.angles <- function(angles = NULL,
                         labels = TRUE,
                         add = FALSE){
   
-  if (is.null(angles) || length(angles) == 0) {
+  if(is.null(angles) ||
+     (length(angles) == 0 && !is.numeric(angles))){
     stop("`angles` must be provided (numeric vector, list, or data.frame).", call. = FALSE)
   }
   
@@ -84,14 +70,18 @@ plot.angles <- function(angles = NULL,
     angles <- as.list(angles)
   }
   
+  if(!all(vapply(angles, is.numeric, logical(1)))){
+    stop("`angles` must be numeric.", call. = FALSE)
+  }
+  
   tmp <- unlist(angles)
-  if(any(is.na(tmp))){
+  if(anyNA(tmp)){
     angles <- lapply(angles, stats::na.omit)
     tmp <- stats::na.omit(tmp)
     warning("NA `angles` ignored.", call. = FALSE)
   }
-  if(any(!is.numeric(tmp))){
-    stop("`angles` must be numeric.", call. = FALSE)
+  if(any(lengths(angles) == 0)){
+    warning("One or more angle sets are empty.", call. = FALSE)
   }
   if(any(tmp <= -180 | tmp > 180)){
     stop("All `angles` must satisfy -180 < angle <= 180 degrees.", call. = FALSE)
@@ -115,6 +105,10 @@ plot.angles <- function(angles = NULL,
     
     if(i == 2 && interactive()){
       graphics::par(ask = TRUE)
+    }
+    
+    if(add && length(angles[[i]]) == 0){
+      next
     }
     
     if(names(angles)[i] == "pitch"){
@@ -188,18 +182,22 @@ conventions <- function(type = c("pitch", "yaw", "view_elevation")){
 }
 
 .plot.pitch <- function(pitches,
-                       main = NULL,
-                       col = NULL,
-                       facing,
-                       labels,
-                       add){
+                        main = NULL,
+                        col = NULL,
+                        facing,
+                        labels,
+                        add){
   
-  fullcircle <- any(abs(pitches) > 90) & any(abs(pitches) < 90)
+  fullcircle <- any(abs(pitches) > 90)
   
-  pitches <- deg2rad(unique(pitches))
+  if(length(pitches) > 0) pitches <- deg2rad(unique(pitches))
   
   if(is.null(main)) main <- "pitch\n(side view)"
   if(is.null(col)) col <- "cadetblue"
+  
+  if(facing == "left"){
+    pitches <- pi - pitches
+  }
   
   if(!add){
     if(fullcircle){
@@ -210,10 +208,6 @@ conventions <- function(type = c("pitch", "yaw", "view_elevation")){
       } else {
         theta <- seq(90, 270, length.out = 200) * pi/180
       }
-    }
-    
-    if(facing == "left"){
-      pitches <- pi - pitches
     }
     
     graphics::plot(x = cos(theta),
@@ -229,11 +223,13 @@ conventions <- function(type = c("pitch", "yaw", "view_elevation")){
                    main = main)
   }
   
-  graphics::segments(0, 0,
-                     cos(pitches),
-                     sin(pitches),
-                     col = col,
-                     lwd = 0.5)
+  if(length(pitches) > 0){
+    graphics::segments(0, 0,
+                       cos(pitches),
+                       sin(pitches),
+                       col = col,
+                       lwd = 0.5)
+  }
   
   if(!add){
     graphics::segments(1-2*(facing == "left"), 0,
@@ -265,21 +261,23 @@ conventions <- function(type = c("pitch", "yaw", "view_elevation")){
   
   if(labels){
     graphics::text(0, 0, "base", pos = 2+(facing=="left")*2)
-    graphics::text(mean(cos(pitches)),
-                   mean(sin(pitches)),
-                   "tip",
-                   pos = 4-(facing=="left")*2)
+    if(length(pitches) > 0){
+      graphics::text(mean(cos(pitches)),
+                     mean(sin(pitches)),
+                     "tip",
+                     pos = 4-(facing=="left")*2)
+    }
   }
   
 }
 
 .plot.yaw <- function(yaws,
-                     main = NULL,
-                     col = NULL,
-                     labels,
-                     add){
+                      main = NULL,
+                      col = NULL,
+                      labels,
+                      add){
   
-  yaws <- deg2rad(unique(yaws))
+  if(length(yaws) > 0) yaws <- deg2rad(unique(yaws))
   
   if(is.null(main)) main <- "yaw\n(overhead view)"
   if(is.null(col)) col <- "salmon"
@@ -299,11 +297,13 @@ conventions <- function(type = c("pitch", "yaw", "view_elevation")){
                    main = main)
   }
   
-  graphics::segments(0, 0,
-                     0 + 1 * cos(yaws),
-                     0 + 1 * sin(yaws),
-                     col = col,
-                     lwd = 0.5)
+  if(length(yaws) > 0){
+    graphics::segments(0, 0,
+                       0 + 1 * cos(yaws),
+                       0 + 1 * sin(yaws),
+                       col = col,
+                       lwd = 0.5)
+  }
   if(!add){
     graphics::segments(-1, 0,
                        1, 0,
@@ -321,25 +321,31 @@ conventions <- function(type = c("pitch", "yaw", "view_elevation")){
   
   if(labels){
     graphics::text(0, 0, "base", pos = 2)
-    graphics::text(mean(cos(yaws)),
-                   mean(sin(yaws)),
-                   "tip",
-                   pos = 4)
+    if(length(yaws) > 0){
+      graphics::text(mean(cos(yaws)),
+                     mean(sin(yaws)),
+                     "tip",
+                     pos = 4)
+    }
   }
   
 }
 
 .plot.elevation <- function(elevations,
-                           main = NULL,
-                           col = NULL,
-                           facing,
-                           labels,
-                           add){
+                            main = NULL,
+                            col = NULL,
+                            facing,
+                            labels,
+                            add){
   
-  elevations <- deg2rad(unique(elevations))
+  if(length(elevations) > 0) elevations <- deg2rad(unique(elevations))
   
   if(is.null(main)) main <- "view elevation\n(side view)"
   if(is.null(col)) col <- "darkolivegreen"
+  
+  if(facing == "left"){
+    elevations <- pi - elevations
+  }
   
   if(!add){
     
@@ -347,7 +353,6 @@ conventions <- function(type = c("pitch", "yaw", "view_elevation")){
       theta <- seq(-90, 90, length.out = 200) * pi/180
     } else {
       theta <- seq(90, 270, length.out = 200) * pi/180
-      elevations <- pi - elevations
     }
     
     graphics::plot(x = 0 + 1 * cos(theta),
@@ -364,11 +369,13 @@ conventions <- function(type = c("pitch", "yaw", "view_elevation")){
     
   }
   
-  graphics::segments(0, 0,
-                     0 + 1 * cos(elevations),
-                     0 + 1 * sin(elevations),
-                     col = col,
-                     lwd = 0.5)
+  if(length(elevations) > 0){
+    graphics::segments(0, 0,
+                       0 + 1 * cos(elevations),
+                       0 + 1 * sin(elevations),
+                       col = col,
+                       lwd = 0.5)
+  }
   if(!add){
     graphics::segments(1-2*(facing == "left"), 0,
                        0, 0,
@@ -386,23 +393,25 @@ conventions <- function(type = c("pitch", "yaw", "view_elevation")){
   
   if(labels){
     graphics::text(0, 0, "object", pos = 2+(facing=="left")*2)
-    graphics::text(mean(cos(elevations)),
-                   mean(sin(elevations)),
-                   "observer",
-                   pos = 4-(facing=="left")*2)
+    if(length(elevations) > 0){
+      graphics::text(mean(cos(elevations)),
+                     mean(sin(elevations)),
+                     "observer",
+                     pos = 4-(facing=="left")*2)
+    }
   }
   
 }
 
 .plot.generic <- function(angles,
-                         main = NULL,
-                         col = NULL,
-                         add){
+                          main = NULL,
+                          col = NULL,
+                          add){
   
   
   if(is.null(col)) col <- "gray50"
   
-  angles <- deg2rad(angles)
+  if(length(angles) > 0) angles <- deg2rad(unique(angles))
   
   if(!add){
     theta <- seq(0, 2*pi, length.out = 400)
@@ -419,11 +428,13 @@ conventions <- function(type = c("pitch", "yaw", "view_elevation")){
                    main = main)
   }
   
-  graphics::segments(0, 0,
-                     0 + 1 * cos(angles),
-                     0 + 1 * sin(angles),
-                     col = col,
-                     lwd = 0.5)
+  if(length(angles) > 0){
+    graphics::segments(0, 0,
+                       0 + 1 * cos(angles),
+                       0 + 1 * sin(angles),
+                       col = col,
+                       lwd = 0.5)
+  }
   
   if(!add){
     graphics::segments(-1, 0,

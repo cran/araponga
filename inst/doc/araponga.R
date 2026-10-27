@@ -1,4 +1,4 @@
-## ----include = FALSE----------------------------------------------------------
+## ----include=FALSE------------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -17,248 +17,192 @@ plot.angles(-80, type = "yaw")
 ## -----------------------------------------------------------------------------
 plot.angles(-15, type = "view_elevation")
 
-## ----echo=FALSE, out.width="80%", fig.cap="Male bare-throated bellbird singing in Brazil."----
+## ----bellbird-frame, echo=FALSE, out.width="80%", fig.cap="Male bare-throated bellbird singing in Brazil."----
 knitr::include_graphics("figures/bellbird.png")
 
-## -----------------------------------------------------------------------------
-# upper tip
-x_ut <- -718.5216072
-y_ut <- -78.5485277
+## ----bellbird-landmarks-------------------------------------------------------
+# Upper jaw tip
+x_ut <- 779.1665929
+y_ut <- -118.5923004
 
-# upper base
-x_ub <- -782.5250905
-y_ub <- -105.2195211
+# Upper jaw left and right base landmarks
+x_ubl <- 801.2635377
+y_ubl <- -172.4408205
+x_ubr <- 758.6076256
+y_ubr <- -171.9911809
 
-# lower tip
-x_lt <- -689.0089234
-y_lt <- -210.4188121
+# Lower jaw tip
+x_lt <- 777.9828121
+y_lt <- -267.6136455
 
-# lower base
-x_lb <- -751.2784311
-y_lb <- -178.5397719
+# Lower jaw left and right base landmarks
+x_lbl <- 805.4430586
+y_lbl <- -247.8488698
+x_lbr <- 752.4028602
+y_lbr <- -248.1718717
 
-## -----------------------------------------------------------------------------
-upper_p2d <- pitch2d.from.xy(x_ut, y_ut, x_ub, y_ub, plot = TRUE)
+## ----central-axis-midpoints---------------------------------------------------
+# Midpoint of the two upper base landmarks
+x_ub <- mean(c(x_ubl, x_ubr))
+y_ub <- mean(c(y_ubl, y_ubr))
 
-## -----------------------------------------------------------------------------
-cat(upper_p2d)
+# Midpoint of the two lower base landmarks
+x_lb <- mean(c(x_lbl, x_lbr))
+y_lb <- mean(c(y_lbl, y_lbr))
 
-## ----eval = FALSE-------------------------------------------------------------
-# upper_pitch <- find.pitch(upper_p2d,
-#                    candidate_view_elevations = 0,
-#                    candidate_yaws = 0,
-#                    label_error = 1)
-
-## ----echo = FALSE-------------------------------------------------------------
-# "find" functions aren't CRAN-friendly
-upper_pitch <- 21:24
-
-## -----------------------------------------------------------------------------
-upper_pitch
-plot.angles(upper_pitch, "pitch")
-
-## ----eval = FALSE-------------------------------------------------------------
-# upper_pitch <- find.pitch(upper_p2d,
-#                    label_error = 1)
-
-## ----echo = FALSE-------------------------------------------------------------
-upper_pitch <- -89:89
+## ----lower-2d-----------------------------------------------------------------
+lower_2d <- project2d.from.xy(x_tip = x_lt, y_tip = y_lt,
+                              x_base = x_lb, y_base = y_lb,
+                              plot = TRUE)
 
 ## -----------------------------------------------------------------------------
-upper_pitch
-plot.angles(upper_pitch, "pitch")
+lower_2d$pitch2d
 
-## -----------------------------------------------------------------------------
-measured_elevation <- -34.2
+## ----initially-unconstrained--------------------------------------------------
+lower_pitch_unconstrained <- find.pitch(observed2d = lower_2d,
+                                        label_error = 1)
+lower_pitch_unconstrained
+plot.angles(lower_pitch_unconstrained, type = "pitch")
+
+## ----view-elevation-----------------------------------------------------------
+measured_elevation <- seq(-10.4, -8.4, by = 0.1)
 
 plot.angles(measured_elevation,
             type = "view_elevation",
-            main = "measured view elevation")
+            main = "candidate view elevations")
 
-## ----eval = FALSE-------------------------------------------------------------
-# upper_pitch <- find.pitch(upper_p2d,
-#                    candidate_view_elevations = measured_elevation,
-#                    label_error = 1)
+## ----pitch-with-elevation-----------------------------------------------------
+lower_pitch_elevation <- find.pitch(observed2d = lower_2d,
+                                    label_error = 1,
+                                    candidate_view_elevations = measured_elevation)
+lower_pitch_elevation
+plot.angles(lower_pitch_elevation, type = "pitch")
 
-## ----echo = FALSE-------------------------------------------------------------
-upper_pitch <- -33:41
-
-## -----------------------------------------------------------------------------
-upper_pitch
-plot.angles(upper_pitch, "pitch")
-
-## -----------------------------------------------------------------------------
-assumed_yaw <- -45:0
+## ----assumed-yaw--------------------------------------------------------------
+assumed_yaw <- -110:-70
 
 plot.angles(assumed_yaw,
             type = "yaw",
             labels = TRUE,
-            main = "assumed yaw range")
+            main = "candidate yaw range")
 
-## ----eval = FALSE-------------------------------------------------------------
-# upper_pitch <- find.pitch(upper_p2d,
-#                    candidate_view_elevations = measured_elevation,
-#                    candidate_yaws = assumed_yaw,
-#                    label_error = 1)
+## ----pitch-with-yaw-----------------------------------------------------------
+lower_pitch_direction <- find.pitch(observed2d = lower_2d,
+                                    label_error = 1,
+                                    candidate_yaws = assumed_yaw,
+                                    candidate_view_elevations = measured_elevation)
 
-## ----echo = FALSE-------------------------------------------------------------
-upper_pitch <- -8:29
+lower_pitch_direction
+plot.angles(lower_pitch_direction, type = "pitch")
+
+## ----physical-length-inputs---------------------------------------------------
+physical_length_lower_mm <- c(19, 23) # mm range; central-axis base to tip
+distance_m <- c(46.3, 46.9)         # m range; camera to bird
+
+# Camera parameters:
+image_width_px <- 1920
+focal_length_mm <- 428.4
+sensor_width_mm <- 6.17
+
+## ----full-lengths-from-camera-------------------------------------------------
+full_length_lower <- full_length.from.camera(
+  length_physical = physical_length_lower_mm,
+  distance = distance_m * 1000,  # m to mm
+  image_width = image_width_px,
+  focal_length = focal_length_mm,
+  sensor_width = sensor_width_mm
+)
+full_length_lower
+
+## ----pitch-with-length--------------------------------------------------------
+lower_pitch <- find.pitch(observed2d = lower_2d,
+                          label_error = 1,
+                          full_length = full_length_lower,
+                          candidate_yaws = assumed_yaw,
+                          candidate_view_elevations = measured_elevation)
+plot.angles(lower_pitch, type = "pitch")
 
 ## -----------------------------------------------------------------------------
-upper_pitch
-plot.angles(upper_pitch, "pitch")
+upper_2d <- project2d.from.xy(x_tip = x_ut, y_tip = y_ut,
+                              x_base = x_ub, y_base = y_ub)
 
-## ----eval = FALSE-------------------------------------------------------------
-# lower_p2d <- pitch2d.from.xy(x_lt, y_lt, x_lb, y_lb)
-# 
-# lower_pitch <- find.pitch(lower_p2d,
-#                    candidate_view_elevations = measured_elevation,
-#                    candidate_yaws = assumed_yaw,
-#                    label_error = 1)
+physical_length_upper_mm <- c(20, 24)
 
-## ----echo = FALSE-------------------------------------------------------------
-lower_pitch <- -43:-30
+full_length_upper <- full_length.from.camera(length_physical = physical_length_upper_mm,
+                                             distance = distance_m * 1000,
+                                             image_width = image_width_px,
+                                             focal_length = focal_length_mm,
+                                             sensor_width = sensor_width_mm)
+
+upper_pitch <- find.pitch(observed2d = upper_2d,
+                          label_error = 1,
+                          full_length = full_length_upper,
+                          candidate_yaws = assumed_yaw,
+                          candidate_view_elevations = measured_elevation)
+
 
 ## -----------------------------------------------------------------------------
-lower_pitch
 
-## -----------------------------------------------------------------------------
-plot.angles(upper_pitch, "pitch")
-plot.angles(lower_pitch, "pitch", add = TRUE)
+plot.angles(lower_pitch, "pitch")
+plot.angles(upper_pitch, "pitch", add = TRUE)
+
 
 ## -----------------------------------------------------------------------------
 gapes <- sort(unique(as.vector(outer(upper_pitch, lower_pitch, "-"))))
 gapes
 
-## ----eval = FALSE-------------------------------------------------------------
-# upper_pitch_paired <- find.pitch(upper_p2d,
-#            candidate_view_elevations = measured_elevation,
-#            candidate_yaws = assumed_yaw,
-#            label_error = 1,
-#            paired = TRUE)
-# 
-# lower_pitch_paired <- find.pitch(lower_p2d,
-#            candidate_view_elevations = measured_elevation,
-#            candidate_yaws = assumed_yaw,
-#            label_error = 1,
-#            paired = TRUE)
-
-## ----eval = FALSE-------------------------------------------------------------
-# all_yaws <- unique(c(upper_pitch_paired$yaw, lower_pitch_paired$yaw))
-# 
-# per_yaw_gapes <- NULL
-# for(y in all_yaws){
-# 
-#   rel_upper_pitch <- upper_pitch_paired$pitch[upper_pitch_paired$yaw == y]
-#   rel_lower_pitch <- lower_pitch_paired$pitch[lower_pitch_paired$yaw == y]
-#   per_yaw_gapes <- c(per_yaw_gapes,
-#                      unique(as.vector(outer(rel_upper_pitch, rel_lower_pitch,"-"))))
-# }
-# 
-# per_yaw_gapes <- sort(unique(per_yaw_gapes))
-
-## ----echo = FALSE-------------------------------------------------------------
-per_yaw_gapes <- 34:63
-
 ## -----------------------------------------------------------------------------
-per_yaw_gapes
+lower_yaw <- find.yaw(lower_2d,
+                      label_error = 1,
+                      full_length = full_length_lower,
+                      candidate_pitches = -90:20,
+                      candidate_view_elevations = measured_elevation)
 
-## ----eval = FALSE-------------------------------------------------------------
-# upper_yaw <- find.yaw(upper_p2d,
-#            candidate_view_elevations = measured_elevation,
-#            candidate_pitches = -20:90,
-#            label_error = 1)
-
-## ----echo = FALSE-------------------------------------------------------------
-upper_yaw <- c(-64:80, 83:84, 87)
-
-## -----------------------------------------------------------------------------
-upper_yaw
-plot.angles(upper_yaw, "yaw")
-
-## ----eval = FALSE-------------------------------------------------------------
-# lower_yaw <- find.yaw(lower_p2d,
-#            candidate_view_elevations = measured_elevation,
-#            candidate_pitches = -90:20,
-#            label_error = 1)
-
-## ----echo = FALSE-------------------------------------------------------------
-lower_yaw <- c(-85, -82, -80:-78, -76:67)
-
-## -----------------------------------------------------------------------------
 lower_yaw
 plot.angles(lower_yaw, "yaw")
 
 ## -----------------------------------------------------------------------------
-both_yaw <- intersect(lower_yaw, upper_yaw)
+upper_yaw <- find.yaw(upper_2d,
+                      label_error = 1,
+                      full_length = full_length_upper,
+                      candidate_pitches = -20:90,
+                      candidate_view_elevations = measured_elevation)
+
+upper_yaw
+plot.angles(upper_yaw, "yaw")
+
+## -----------------------------------------------------------------------------
+both_yaw <- intersect(upper_yaw, lower_yaw)
 plot.angles(both_yaw, "yaw")
 
-## ----eval = FALSE-------------------------------------------------------------
-# upper_yaw_paired <- find.yaw(upper_p2d,
-#            candidate_view_elevations = measured_elevation,
-#            candidate_pitches = -20:90,
-#            label_error = 1,
-#            paired = TRUE)
-# 
-# lower_yaw_paired <- find.yaw(lower_p2d,
-#            candidate_view_elevations = measured_elevation,
-#            candidate_pitches = -90:20,
-#            label_error = 1,
-#            paired = TRUE)
-# 
-# max_gape_per_yaw <- data.frame(yaw = both_yaw,
-#                                gape = NA)
-# 
-# for(i in seq_along(max_gape_per_yaw$yaw)){
-#   rel_yaw <- max_gape_per_yaw$yaw[i]
-# 
-#   rel_upper_pitch <- upper_yaw_paired$pitch[upper_yaw_paired$yaw == rel_yaw]
-#   rel_lower_pitch <- lower_yaw_paired$pitch[lower_yaw_paired$yaw == rel_yaw]
-# 
-#   max_gape_per_yaw$gape[i] <- max(outer(rel_upper_pitch, rel_lower_pitch, "-"))
-# }
-
-## ----echo = FALSE-------------------------------------------------------------
-max_gape_per_yaw <- data.frame(yaw = both_yaw,
-                               gape = 10)
-
 ## -----------------------------------------------------------------------------
-yaw <- max_gape_per_yaw$yaw[max_gape_per_yaw$gape >= 0]
-
-any(max_gape_per_yaw$gape < 0)
-
-## -----------------------------------------------------------------------------
-next_frame_yaw <- -50:90
+next_frame_yaw <- -150:-120
 
 ## -----------------------------------------------------------------------------
 # orange = excluded; blue = retained
-trimmed <- trim.yaws(ccw_yaws = yaw,
+trimmed <- trim.yaws(ccw_yaws = both_yaw,
                      cw_yaws = next_frame_yaw,
                      min_sep = 0,
                      max_sep = 90,
                      plot = TRUE)
 
-yaw <- trimmed$trimmed_ccw_yaws
+both_yaw <- trimmed$trimmed_ccw_yaws
 next_frame_yaw <- trimmed$trimmed_cw_yaws
 
-## -----------------------------------------------------------------------------
-# view elevation measured as -30 degrees, allowed ±5 degrees measurement error
-candidate_view_elevations = -35:-25
+## ----eval=FALSE---------------------------------------------------------------
+# candidate_view_elevations = -35:-25
 
-## -----------------------------------------------------------------------------
-# camera approximately level with the object
-candidate_view_elevations = -20:20
+## ----eval=FALSE---------------------------------------------------------------
+# # Roughly eye-level view
+# candidate_view_elevations = -20:20
+# 
+# # Object mostly facing the camera
+# candidate_yaws = -120:-60
+# 
+# # Object approximately side-on, facing left
+# candidate_yaws = c(-179:-160, 160:180)
 
-# object approximately side-on facing left
-candidate_yaws = c(-160:-179, 160:180)
-
-# object generally facing the camera
-candidate_yaws = -120:-60
-
-## -----------------------------------------------------------------------------
-# structure cannot realistically point downward
-candidate_pitches = 0:90
-
-# lower mandible of a bird opening mostly downward
-candidate_pitches = -90:20
+## ----eval=FALSE---------------------------------------------------------------
+# # A structure that cannot point downward
+# candidate_pitches = 0:90
 
